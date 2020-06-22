@@ -1,15 +1,15 @@
-name: Build
+name: Build AppBundle & ABI	
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+on:	
+  push:	
+    branches: [ master ]	
+  pull_request:	
+    branches: [ master ]	
 
-env:
-  KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
-  ALIAS_NAME: ${{ secrets.ALIAS_NAME }}
-  ALIAS_PASS: ${{ secrets.ALIAS_PASS }}
+env:	
+  KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}	
+  ALIAS_NAME: ${{ secrets.ALIAS_NAME }}	
+  ALIAS_PASS: ${{ secrets.ALIAS_PASS }}	
 
 jobs:
   build:
@@ -32,7 +32,8 @@ jobs:
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
     - run: flutter test
-    - run: flutter build apk
+    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi
+    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64
     - run: ls -al
 
     - uses: actions/upload-artifact@master
@@ -45,13 +46,4 @@ jobs:
       name: Upload app-release.apk
       with:
         name: app-release
-        path: build/app/outputs/apk/release/app-release.apk
-
-    - name: Send to me via Telegram
-      env:
-        CHAT_ID: ${{ secrets.CHAT_ID }}
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-      run: |
-        OUTPUT="build/app/outputs/apk/release"
-        export name=$(find $OUTPUT -name "*.apk")
-        curl https://api.telegram.org/bot${BOT_TOKEN}/sendDocument -X POST -F chat_id="$CHAT_ID" -F document="@$name"
+        path: build/app/outputs/apk/release/*.apk
