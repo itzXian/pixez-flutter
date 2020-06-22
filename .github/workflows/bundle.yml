@@ -1,4 +1,4 @@
-name: Build
+name: Build AppBundle & ABI
 
 on:
   push:
@@ -32,7 +32,8 @@ jobs:
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
     - run: flutter test
-    - run: flutter build apk
+    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi
+    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64
     - run: ls -al
 
     - uses: actions/upload-artifact@master
@@ -46,12 +47,3 @@ jobs:
       with:
         name: app-release
         path: build/app/outputs/apk/release/app-release.apk
-
-    - name: Send to me via Telegram
-      env:
-        CHAT_ID: ${{ secrets.CHAT_ID }}
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-      run: |
-        OUTPUT="build/app/outputs/apk/release"
-        export name=$(find $OUTPUT -name "*.apk")
-        curl https://api.telegram.org/bot${BOT_TOKEN}/sendDocument -X POST -F chat_id="$CHANNEL_ID" -F document="@$name"
