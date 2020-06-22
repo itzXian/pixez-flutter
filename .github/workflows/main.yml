@@ -24,7 +24,7 @@ jobs:
 
     - run: ls -al
     - run: flutter pub get
-    - run: flutter packages pub run build_runner build
+    # - run: flutter packages pub run build_runner build
     - run: flutter pub run intl_utils:generate
     - run: flutter test
     - run: flutter build apk
