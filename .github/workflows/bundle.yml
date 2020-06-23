@@ -2,9 +2,7 @@ name: Build AppBundle & ABI
 
 on:	
   push:	
-    branches: [ master ]	
-  pull_request:	
-    branches: [ master ]	
+    branches: [ master ]
 
 env:	
   KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}	
