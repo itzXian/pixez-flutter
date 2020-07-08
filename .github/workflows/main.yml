@@ -25,13 +25,14 @@ jobs:
       with:
         channel: 'stable'
 
-    - run: ls -al
-    - run: flutter pub get
+    - run: tree
+    - run: flutter doctor
+    - run: flutter pub get --verbose
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
-    - run: flutter test
-    - run: flutter build apk
-    - run: ls -al
+    - run: flutter test --verbose
+    - run: flutter build apk --verbose
+    - run: tree
 
     - uses: actions/upload-artifact@master
       name: Upload output folder
@@ -52,4 +53,4 @@ jobs:
       run: |
         OUTPUT="build/app/outputs/apk/release"
         export name=$(find $OUTPUT -name "*.apk")
-        curl https://api.telegram.org/bot${BOT_TOKEN}/sendDocument -X POST -F chat_id="$CHAT_ID" -F document="@$name"
+        curl https://api.telegram.org/bot${BOT_TOKEN}/sendDocument -X POST -F chat_id="$CHAT_ID" -F caption="$GITHUB_SHA" -F document="@$name"
