@@ -25,6 +25,7 @@ jobs:
       with:
         channel: 'stable'
 
+    - run: sudo apt-get install tree
     - run: tree
     - run: flutter doctor
     - run: flutter pub get --verbose
