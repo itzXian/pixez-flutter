@@ -25,14 +25,14 @@ jobs:
       with:
         channel: 'stable'
 
-    - run: ls -al
-    - run: flutter pub get
+    - run: tree
+    - run: flutter pub get --verbose
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
-    - run: flutter test
-    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi
-    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64
-    - run: ls -al
+    - run: flutter test --verbose
+    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi --verbose
+    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --verbose
+    - run: tree
 
     - uses: actions/upload-artifact@master
       name: Upload output folder
