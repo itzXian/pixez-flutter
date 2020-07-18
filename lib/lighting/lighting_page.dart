@@ -30,12 +30,14 @@ class LightingList extends StatefulWidget {
   final FutureGet source;
   final Widget header;
   final ScrollController scrollController;
+  final bool isNested;
   const LightingList(
       {Key key,
       @required this.source,
       this.controller,
       this.header,
-      this.scrollController})
+      this.scrollController,
+      this.isNested})
       : super(key: key);
 
   @override
@@ -46,18 +48,21 @@ class _LightingListState extends State<LightingList> {
   LightingStore _store;
   EasyRefreshController _easyRefreshController;
   ScrollController _scrollController;
+  bool isNested=false;
   @override
   void didUpdateWidget(LightingList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source != widget.source) {
       _store.source = widget.source;
       _store.fetch();
+      if (!isNested) _scrollController.jumpTo(0.0);
       // _easyRefreshController.callRefresh();
     }
   }
 
   @override
   void initState() {
+    isNested = widget.isNested ?? false;
     _easyRefreshController = widget.controller ?? EasyRefreshController();
     _store = LightingStore(widget.source, _easyRefreshController);
     _scrollController = widget.scrollController ?? ScrollController();
@@ -176,17 +181,11 @@ class _LightingListState extends State<LightingList> {
     );
   }
 
-  Widget _buildNoHeader(BuildContext context) {
-    return _store.iStores.isNotEmpty
+  Widget _buildBody() {
+    return isNested
         ? StaggeredGridView.countBuilder(
             padding: EdgeInsets.all(0.0),
             itemBuilder: (context, index) {
-              // final data = _store.iStores[index].illusts;
-              // if (needToBan(data))
-              //   return Visibility(
-              //     visible: false,
-              //     child: Container(),
-              //   );
               return IllustCard(
                 store: _store.iStores[index],
                 iStores: _store.iStores,
@@ -209,6 +208,35 @@ class _LightingListState extends State<LightingList> {
             itemCount: _store.iStores.length,
             crossAxisCount: 2,
           )
-        : Container();
+        : StaggeredGridView.countBuilder(
+            padding: EdgeInsets.all(0.0),
+            controller: _scrollController,
+            itemBuilder: (context, index) {
+              return IllustCard(
+                store: _store.iStores[index],
+                iStores: _store.iStores,
+              );
+            },
+            staggeredTileBuilder: (int index) {
+              if (needToBan(_store.iStores[index].illusts))
+                return StaggeredTile.extent(1, 0.0);
+              double screanWidth = MediaQuery.of(context).size.width;
+              double itemWidth = (screanWidth / 2.0) - 32.0;
+              double radio = _store.iStores[index].illusts.height.toDouble() /
+                  _store.iStores[index].illusts.width.toDouble();
+              double mainAxisExtent;
+              if (radio > 3)
+                mainAxisExtent = itemWidth;
+              else
+                mainAxisExtent = itemWidth * radio;
+              return StaggeredTile.extent(1, mainAxisExtent + 80.0);
+            },
+            itemCount: _store.iStores.length,
+            crossAxisCount: 2,
+          );
+  }
+
+  Widget _buildNoHeader(BuildContext context) {
+    return _store.iStores.isNotEmpty ? _buildBody() : Container();
   }
 }
