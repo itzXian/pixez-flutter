@@ -14,6 +14,8 @@
  *
  */
 
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -195,7 +197,12 @@ class _SearchPageState extends State<SearchPage>
                         fit: BoxFit.fitWidth,
                       ),
                       Align(
-                        child: Text(tags[index].tag),
+                        child: Container(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                            child: Container(child: Text(tags[index].tag)),
+                          ),
+                        ),
                         alignment: Alignment.bottomCenter,
                       ),
                     ],
