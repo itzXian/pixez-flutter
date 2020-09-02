@@ -16,11 +16,9 @@
 
 import 'dart:async';
 
-import 'package:animations/animations.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/document_plugin.dart';
 import 'package:pixez/generated/l10n.dart';
@@ -32,6 +30,7 @@ import 'package:pixez/page/hello/ranking/rank_page.dart';
 import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
 import 'package:pixez/page/hello/setting/setting_page.dart';
 import 'package:pixez/page/login/login_page.dart';
+import 'package:pixez/page/novel/recom/novel_recom_page.dart';
 import 'package:pixez/page/picture/illust_page.dart';
 import 'package:pixez/page/saucenao/saucenao_page.dart';
 import 'package:pixez/page/search/search_page.dart';
@@ -68,17 +67,11 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
   Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       body: PageView.builder(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            this.index = index;
-          });
-        },
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          return _pageList[index];
-        },
-      ),
+          controller: _pageController,
+          itemCount: 5,
+          itemBuilder: (context, index) {
+            return _pageList[index];
+          }),
       bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           currentIndex: index,
