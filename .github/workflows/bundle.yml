@@ -32,8 +32,8 @@ jobs:
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
     - run: flutter test --verbose
-    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi --verbose
-    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --verbose
+    - run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi --verbose --dart-define=IS_GOOGLEPLAY=false
+    - run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --verbose --dart-define=IS_GOOGLEPLAY=false
     - run: tree
 
     - uses: actions/upload-artifact@master

@@ -32,7 +32,7 @@ jobs:
     # - run: flutter packages pub run build_runner build
     # - run: flutter pub run intl_utils:generate
     - run: flutter test --verbose
-    - run: flutter build apk --verbose
+    - run: flutter build apk --verbose --dart-define=IS_GOOGLEPLAY=false
     - run: tree
 
     - uses: actions/upload-artifact@master
