@@ -29,7 +29,6 @@ part 'user_setting.g.dart';
 class UserSetting = _UserSettingBase with _$UserSetting;
 
 abstract class _UserSettingBase with Store {
-
   SharedPreferences prefs;
   static const String ZOOM_QUALITY_KEY = "zoom_quality";
   static const String SINGLE_FOLDER_KEY = "single_folder";
@@ -57,7 +56,6 @@ abstract class _UserSettingBase with Store {
   @observable
   bool hIsNotAllow = false;
 
-
   @observable
   String format = "";
   static const String intialFormat = "{illust_id}_p{part}";
@@ -72,9 +70,13 @@ abstract class _UserSettingBase with Store {
   @observable
   ThemeData themeData = ThemeData(
       brightness: Brightness.light,
-      primaryColor: Colors.cyan[500],
+      primaryColor: Colors.white,
       accentColor: Colors.cyan[400],
-      appBarTheme: AppBarTheme(brightness: Brightness.light));
+      appBarTheme: AppBarTheme(
+        brightness: Brightness.light,
+        // color: Colors.transparent,
+        // elevation: 0.0,
+      ));
   @action
   Future<void> init() async {
     prefs = await SharedPreferences.getInstance();
@@ -95,8 +97,12 @@ abstract class _UserSettingBase with Store {
           themeData = ThemeData(
             brightness: Brightness.light,
             accentColor: _stringToColor(colors[0]),
-            primaryColor: _stringToColor(colors[1]),
-            appBarTheme: AppBarTheme(brightness: Brightness.light),
+            primaryColor: Colors.white,
+            appBarTheme: AppBarTheme(
+              brightness: Brightness.light,
+              // color: Colors.transparent,
+              // elevation: 0.0,
+            ),
           );
         } catch (e) {
           print(e);
@@ -130,7 +136,7 @@ abstract class _UserSettingBase with Store {
         brightness: Brightness.light,
       ),
       accentColor: _stringToColor(data[0]),
-      primaryColor: _stringToColor(data[1]),
+      primaryColor: Colors.white,
     );
   }
 
@@ -175,8 +181,6 @@ abstract class _UserSettingBase with Store {
     await prefs.setBool(SINGLE_FOLDER_KEY, value);
     singleFolder = value;
   }
-
-
 
   final languageList = ['en-US', 'zh-CN', 'zh-TW'];
 
