@@ -1,0 +1,68 @@
+name: Compiling
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+  ALIAS_NAME: ${{ secrets.ALIAS_NAME }}
+  ALIAS_PASS: ${{ secrets.ALIAS_PASS }}
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: sudo add-apt-repository ppa:rmescandon/yq
+    - run: sudo apt update
+    - run: sudo apt install yq -y
+    - run: yq w -i pubspec.yaml dependencies.intl ^$(yq r pubspec.lock packages.intl.version)
+    - run: yq w -i pubspec.yaml dependencies.intl_utils ^1.8.0
+    - run: yq r pubspec.yaml
+    - run: cat pubspec.yaml | grep intl
+
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '1.8'
+
+    - uses: subosito/flutter-action@v1
+      with:
+        channel: 'stable'
+
+    - run: flutter --help -v
+    - run: flutter doctor
+    - run: flutter pub get -v
+    - run: flutter pub run intl_utils:generate
+    - run: flutter build apk --dart-define=IS_GOOGLEPLAY=false
+
+    - uses: actions/upload-artifact@master
+      name: Upload artifact
+      with:
+        name: app-release.zip
+        path: build/app/outputs/apk/release/app-release.apk
+
+    - uses: actions/create-release@v1
+      name: Create Release
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: Custom
+        release_name: Release app-release.apk
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/app/outputs/apk/release/app-release.apk
+        asset_name: app-release.apk
+        asset_content_type: application/zip
+    - run: tree
+    - run: find -name app-release.apk
