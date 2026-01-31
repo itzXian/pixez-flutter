@@ -25,6 +25,7 @@ jobs:
         run: flutter pub run build_runner build --delete-conflicting-outputs
       - name: Try to change compileSdkVersion for rhttp
         run: sed -i 's/\(compileSdkVersion\) 33/\1 34/' /home/runner/.pub-cache/hosted/pub.dev/rhttp-0.15.0/android/build.gradle
+        continue-on-error: true
       - name: Build apk
         run: flutter build apk --split-per-abi --dart-define=IS_GOOGLEPLAY=false
       - name: Sign APK
