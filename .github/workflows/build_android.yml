@@ -17,12 +17,16 @@ jobs:
         uses: bancolombia/flutter-setup-action@main
         with:
           channel: 'stable'
+      - name: Checking
+        run: flutter doctor -v
       - name: Install Flutter dependencies
         run: flutter pub get
       - name: Build boilerplate code
         run: flutter packages pub run build_runner build --delete-conflicting-outputs
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@main
+      - name: Checking
+        run: flutter doctor -v
       - name: Build apk
         run: flutter build apk --split-per-abi --dart-define=IS_GOOGLEPLAY=false
       - name: Sign APK
