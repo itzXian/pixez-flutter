@@ -23,7 +23,9 @@ jobs:
         with:
           cmdline-tools-version: 12266719
       - name: Install Android SDK 36
-        run: sdkmanager "platforms;android-36"
+        run: |
+          sdkmanager "platforms;android-36"
+          sed -i 's/minSdk\s*=\s*21/minSdk = 24/g' android/androidndkgif/build.gradle.kts
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@main
       - name: Setup Flutter
