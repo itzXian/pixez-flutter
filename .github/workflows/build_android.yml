@@ -10,7 +10,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@main
       - name: Config Gradle
-        run: sed -i '/signingConfigs {/,/^    }/d' android/app/build.gradle.kts
+        run: |
+          sed -i '/signingConfigs {/,/^    }/d' android/app/build.gradle.kts
+          sed -i '/buildTypes {/,/^    }/d' android/app/build.gradle.kts
       - name: Setup Flutter
         uses: bancolombia/flutter-setup-action@main
         with:
