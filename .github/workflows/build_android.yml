@@ -20,6 +20,8 @@ jobs:
           java-version: '21'
       - name: Setup Android SDK
         uses: android-actions/setup-android@main
+        with:
+          cmdline-tools-version: 12266719
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@main
       - name: Setup Flutter
