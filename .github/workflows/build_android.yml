@@ -23,8 +23,6 @@ jobs:
         run: flutter pub get
       - name: Build boilerplate code
         run: flutter packages pub run build_runner build --delete-conflicting-outputs
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@main
       - name: Checking
         run: flutter doctor -v
       - name: Build apk
