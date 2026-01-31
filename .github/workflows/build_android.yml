@@ -13,6 +13,12 @@ jobs:
         run: |
           sed -i '/signingConfigs {/,/^    }/d' android/app/build.gradle.kts
           sed -i '/buildTypes {/,/^    }/d' android/app/build.gradle.kts
+      - name: Setup Java JDK
+        uses: actions/setup-java@main
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3.2.1
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@main
       - name: Setup Flutter
         uses: bancolombia/flutter-setup-action@main
         with:
