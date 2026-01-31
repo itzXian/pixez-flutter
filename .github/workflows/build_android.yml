@@ -13,33 +13,16 @@ jobs:
         run: |
           sed -i '/signingConfigs {/,/^    }/d' android/app/build.gradle.kts
           sed -i '/buildTypes {/,/^    }/d' android/app/build.gradle.kts
-      - name: Setup Java JDK
-        uses: actions/setup-java@main
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@main
-        with:
-          cmdline-tools-version: 12266719
-      - name: Install Android SDK 36
-        run: |
-          sdkmanager "platforms;android-36"
-          sed -i 's/minSdk\s*=\s*21/minSdk = 24/g' android/androidndkgif/build.gradle.kts
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@main
       - name: Setup Flutter
         uses: bancolombia/flutter-setup-action@main
         with:
           channel: 'stable'
-      - name: Checking
-        run: flutter doctor -v
       - name: Install Flutter dependencies
         run: flutter pub get
       - name: Build boilerplate code
         run: flutter packages pub run build_runner build --delete-conflicting-outputs
-      - name: Checking
-        run: flutter doctor -v
       - name: Build apk
         run: flutter build apk --split-per-abi --dart-define=IS_GOOGLEPLAY=false
       - name: Sign APK
