@@ -1,0 +1,49 @@
+name: Build Android
+
+on:
+  workflow_dispatch
+
+jobs:
+  Build_Android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+      - name: Setup Flutter
+        uses: bancolombia/flutter-setup-action@main
+        with:
+          channel: 'stable'
+      - name: Install Flutter dependencies
+        run: flutter pub get
+      - name: Build boilerplate code
+        run: flutter packages pub run build_runner build --delete-conflicting-outputs
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@main
+      - name: Build apk
+        run: flutter build apk --split-per-abi --flavor dev --dart-define=IS_FOSS_BUILD=false --dart-define-from-file=env/dev.json
+      - name: Sign APK
+        uses: NoCrypt/sign-android@main
+        with:
+          releaseDir: build/app/outputs/flutter-apk
+          signingKey: ${{ secrets.KEYSTORE }}
+          keyAlias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+      - name: Upload arm64 build artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: arm64
+          path: build/app/outputs/flutter-apk/*arm64*signed.apk
+      - name: Upload armeabi-v7a build artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: armeabi-v7a
+          path: build/app/outputs/flutter-apk/*armeabi-v7a*signed.apk
+      - name: Upload x86_64 build artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: x86_64
+          path: build/app/outputs/flutter-apk/*x86_64*signed.apk
+      - name: List files
+        if: always()
+        run: tree
