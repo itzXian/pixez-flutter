@@ -4,26 +4,20 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
-import 'package:image_picker_android/image_picker_android.dart';
-import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/lprinter.dart';
-import 'package:pixez/er/prefer.dart';
+import 'package:pixez/fluent/component/pixiv_image.dart';
+import 'package:pixez/fluent/page/picture/illust_lighting_page.dart';
 import 'package:pixez/i18n.dart';
-import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/network/api_client.dart';
-import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/saucenao/sauce_nao_result.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 enum _SauceNaoPhase { idle, loading, done, error }
 
@@ -31,14 +25,22 @@ class SauceNaoModal extends StatefulWidget {
   const SauceNaoModal({super.key});
 
   static Future<void> show(BuildContext context) async {
-    final result = await showModalBottomSheet<SauceNaoResult>(
+    final result = await showDialog<SauceNaoResult>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+      useRootNavigator: false,
       builder: (context) => const SauceNaoModal(),
     );
     if (result == null || !context.mounted) return;
-    Leader.push(context, IllustLightingPage(id: result.illustId));
+    Leader.push(
+      context,
+      IllustLightingPage(id: result.illustId),
+      icon: const Icon(FluentIcons.picture),
+      title: Text(
+        result.title?.isNotEmpty == true
+            ? result.title!
+            : "Pixiv #${result.illustId}",
+      ),
+    );
   }
 
   @override
@@ -72,14 +74,7 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
   }
 
   Future<void> _pickAndSearch() async {
-    await _ensurePhotoPickerPreference();
     final picker = ImagePicker();
-    final ImagePickerPlatform imagePickerImplementation =
-        ImagePickerPlatform.instance;
-    if (imagePickerImplementation is ImagePickerAndroid) {
-      imagePickerImplementation.useAndroidPhotoPicker =
-          userSetting.imagePickerType == 1;
-    }
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile == null || !mounted) return;
 
@@ -163,8 +158,8 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
       final decoded = raw is String
           ? jsonDecode(raw)
           : raw is Map
-          ? raw
-          : null;
+              ? raw
+              : null;
       if (decoded is Map) {
         return _parseJson(Map<String, dynamic>.from(decoded));
       }
@@ -228,11 +223,9 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
 
         final thumbnail =
             node.querySelector('.resultimage img')?.attributes['src'] ??
-            node.querySelector('img')?.attributes['src'];
-        final similarity = node
-            .querySelector('.resultsimilarityinfo')
-            ?.text
-            .trim();
+                node.querySelector('img')?.attributes['src'];
+        final similarity =
+            node.querySelector('.resultsimilarityinfo')?.text.trim();
         title = node.querySelector('.resulttitle')?.text.trim();
         final memberAnchors = node.querySelectorAll('a').where((a) {
           final href = a.attributes['href'] ?? '';
@@ -319,95 +312,34 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
     return img.encodeJpg(newImage, quality: 75);
   }
 
-  Future<void> _ensurePhotoPickerPreference() async {
-    if (!Platform.isAndroid || !mounted) return;
-    final skipAlert = Prefer.getBool("photo_picker_type_selected") ?? false;
-    if (skipAlert) return;
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          contentPadding: EdgeInsets.only(top: 10.0, bottom: 10.0),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Observer(
-                builder: (context) {
-                  return SwitchListTile(
-                    secondary: Icon(Icons.photo_album),
-                    onChanged: (bool value) async {
-                      await userSetting.setImagePickerType(value ? 1 : 0);
-                    },
-                    title: InkWell(
-                      child: Text(I18n.of(context).photo_picker),
-                      onTap: () {
-                        launchUrlString(
-                          "https://developer.android.com/training/data-storage/shared/photopicker",
-                        );
-                      },
-                    ),
-                    subtitle: Text(I18n.of(context).photo_picker_subtitle),
-                    value: userSetting.imagePickerType == 1,
-                  );
-                },
-              ),
-              Divider(),
-              InkWell(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(I18n.of(context).ok),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    await Prefer.setBool("photo_picker_type_selected", true);
+  void _close() {
+    _cancelRequest();
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.of(context).size.height * 0.75;
-    return PopScope(
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) _cancelRequest();
-      },
-      child: SafeArea(
-        child: SizedBox(
-          height: height,
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                title: Text("SauceNao"),
-                trailing: IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: () {
-                    _cancelRequest();
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(child: _buildBody(context)),
-            ],
+    return ContentDialog(
+      constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
+      title: Row(
+        children: [
+          const Expanded(child: Text('SauceNao')),
+          IconButton(
+            icon: const Icon(FluentIcons.chrome_close),
+            onPressed: _close,
           ),
-        ),
+        ],
       ),
+      content: SizedBox(
+        height: 520,
+        child: _buildBody(context),
+      ),
+      actions: [
+        Button(
+          onPressed: _close,
+          child: Text(I18n.of(context).cancel),
+        ),
+      ],
     );
   }
 
@@ -432,15 +364,21 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.image_search,
+              FluentIcons.image_search,
               size: 64,
-              color: Theme.of(context).colorScheme.primary,
+              color: FluentTheme.of(context).accentColor,
             ),
             const SizedBox(height: 16),
-            FilledButton.icon(
+            FilledButton(
               onPressed: _pickAndSearch,
-              icon: Icon(Icons.add_photo_alternate),
-              label: Text(I18n.of(context).upload_picture),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(FluentIcons.photo2_add),
+                  const SizedBox(width: 8),
+                  Text(I18n.of(context).upload_picture),
+                ],
+              ),
             ),
           ],
         ),
@@ -466,15 +404,12 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
                 ),
               ),
             const SizedBox(height: 24),
-            const CircularProgressIndicator(),
+            const ProgressRing(),
             const SizedBox(height: 16),
             Text(I18n.of(context).uploading),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: () {
-                _cancelRequest();
-                Navigator.of(context).pop();
-              },
+            Button(
+              onPressed: _close,
               child: Text(I18n.of(context).cancel),
             ),
           ],
@@ -491,9 +426,9 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline,
+              FluentIcons.error,
               size: 48,
-              color: Theme.of(context).colorScheme.error,
+              color: Colors.red,
             ),
             const SizedBox(height: 12),
             ConstrainedBox(
@@ -504,7 +439,7 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
                 child: Text(
                   _errorMessage ?? "",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  style: TextStyle(color: Colors.red),
                 ),
               ),
             ),
@@ -529,10 +464,16 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
             children: [
               Text(I18n.of(context).no_result),
               const SizedBox(height: 16),
-              FilledButton.icon(
+              FilledButton(
                 onPressed: _pickAndSearch,
-                icon: Icon(Icons.add_photo_alternate),
-                label: Text(I18n.of(context).upload_picture),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(FluentIcons.photo2_add),
+                    const SizedBox(width: 8),
+                    Text(I18n.of(context).upload_picture),
+                  ],
+                ),
               ),
             ],
           ),
@@ -543,20 +484,18 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
               Expanded(
                 child: Text(
-                  I18n.of(
-                    context,
-                  ).tap_to_show_results(_results.length.toString()),
+                  I18n.of(context)
+                      .tap_to_show_results(_results.length.toString()),
                 ),
               ),
-              TextButton.icon(
+              HyperlinkButton(
                 onPressed: _pickAndSearch,
-                icon: Icon(Icons.add_photo_alternate),
-                label: Text(I18n.of(context).upload_picture),
+                child: Text(I18n.of(context).upload_picture),
               ),
             ],
           ),
@@ -564,7 +503,7 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
         Expanded(
           child: ListView.separated(
             itemCount: _results.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, __) => const Divider(),
             itemBuilder: (context, index) {
               final item = _results[index];
               return ListTile(
@@ -588,8 +527,8 @@ class _SauceNaoModalState extends State<SauceNaoModal> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Icon(Icons.chevron_right),
-                onTap: () {
+                trailing: Icon(FluentIcons.chevron_right),
+                onPressed: () {
                   Navigator.of(context).pop(item);
                 },
               );
@@ -637,7 +576,6 @@ class _PixivIllustThumbnailState extends State<_PixivIllustThumbnail> {
       return;
     }
     try {
-      // apiClient 拦截器会自动带 Authorization: Bearer <access_token>
       final response = await apiClient.getIllustDetail(widget.illustId);
       final illust = Illusts.fromJson(response.data['illust']);
       if (!mounted) return;
@@ -659,14 +597,17 @@ class _PixivIllustThumbnailState extends State<_PixivIllustThumbnail> {
     return Container(
       width: 56,
       height: 56,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: FluentTheme.of(context).resources.cardBackgroundFillColorDefault,
       alignment: Alignment.center,
       child: failed
-          ? Text(':(', style: Theme.of(context).textTheme.headlineMedium)
+          ? Text(
+              ':(',
+              style: FluentTheme.of(context).typography.title,
+            )
           : const SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: ProgressRing(strokeWidth: 2),
             ),
     );
   }
