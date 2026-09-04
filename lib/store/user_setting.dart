@@ -17,7 +17,7 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/constants.dart';
@@ -28,6 +28,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/network/network_mode.dart';
 import 'package:pixez/network/oauth_client.dart';
 import 'package:pixez/page/about/languages.dart';
 import 'package:pixez/secure_plugin.dart';
@@ -58,6 +59,11 @@ abstract class _UserSetting with Store {
   static const String IS_TOPMODE_KEY = "is_top_mode";
   static const String STORE_PATH_KEY = "save_store";
   static const String PICTURE_SOURCE_KEY = "picture_source";
+  static const String NETWORK_MODE_KEY = "network_mode";
+  static const String API_NETWORK_MODE_KEY = "network_mode_app_api_pixiv_net";
+  static const String OAUTH_NETWORK_MODE_KEY =
+      "network_mode_oauth_secure_pixiv_net";
+  static const String LEGACY_DISABLE_BYPASS_SNI_KEY = "disable_bypass_sni";
   static const String ISHELPLESSWAY_KEY = "is_helplessway";
   static const String THEME_MODE_KEY = "theme_mode";
   static const String SAVE_MODE_KEY = "save_mode";
@@ -78,8 +84,8 @@ abstract class _UserSetting with Store {
   static const String NAME_EVAL_KEY = "name_eval";
   static const String CROSS_ADAPT_KEY = "cross_adapt";
   static const String CROSS_ADAPT_WIDTH_KEY = "cross_adapt_width";
-  static const String H_CROSS_ADAPT_KEY = "cross_adapt";
-  static const String H_CROSS_ADAPT_WIDTH_KEY = "cross_adapt_width";
+  static const String H_CROSS_ADAPT_KEY = "h_cross_adapt";
+  static const String H_CROSS_ADAPT_WIDTH_KEY = "h_cross_adapt_width";
   static const String DEFAULT_PRIVATE_LIKE_KEY = "default_private_like";
   static const String IMAGE_PICKER_TYPE_KEY = "image_picker_type_renew";
   static const String LONG_PRESS_SAVE_CONFIRM_KEY = "long_press_save_confirm";
@@ -88,10 +94,12 @@ abstract class _UserSetting with Store {
   static const String SWIPE_CHANGE_ARTWORK_KEY = "swipe_change_artwork";
   static const String USE_SAUNCE_NAO_WEBVIEW = "use_sauce_nao_webview";
   static const String FEED_AI_BADGE_KEY = "feed_ai_badge";
+  static const String IGNORE_UPDATE_VERSION_KEY = "ignore_update_version";
   static const String ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY =
       "illust_detail_save_skip_long_press";
   static const String DRAG_START_X_KEY = "drag_start_x";
   static const String AUTO_TAG_WHEN_STAR_KEY = "auto_tag_when_star";
+  static const String HAPTIC_FEEDBACK_KEY = "haptic_feedback";
 
   @observable
   double dragStartX = 0;
@@ -146,7 +154,9 @@ abstract class _UserSetting with Store {
   @observable
   int? displayMode;
   @observable
-  bool disableBypassSni = false;
+  NetworkMode networkMode = NetworkMode.ech;
+  @observable
+  NetworkMode oauthNetworkMode = NetworkMode.ech;
   @observable
   bool singleFolder = false;
   @observable
@@ -157,6 +167,8 @@ abstract class _UserSetting with Store {
   bool followAfterStar = false;
   @observable
   String? pictureSource = ImageHost;
+
+  bool get needsCompatibleDnsFetch => networkMode == NetworkMode.compat;
   @observable
   double novelFontsize = 16.0;
   @observable
@@ -198,13 +210,33 @@ abstract class _UserSetting with Store {
   @observable
   bool feedAIBadge = false;
   @observable
+  String? ignoreUpdateVersion;
+  @observable
   bool autoTagWhenStar = false;
+  @observable
+  bool hapticFeedback = true;
   static const String intialFormat = "{illust_id}_p{part}";
+
+  @action
+  setHapticFeedback(bool value) async {
+    await prefs.setBool(HAPTIC_FEEDBACK_KEY, value);
+    hapticFeedback = value;
+  }
 
   @action
   setFeedAIBadge(bool value) async {
     await prefs.setBool(FEED_AI_BADGE_KEY, value);
     feedAIBadge = value;
+  }
+
+  @action
+  setIgnoreUpdateVersion(String? value) async {
+    if (value == null || value.isEmpty) {
+      await prefs.remove(IGNORE_UPDATE_VERSION_KEY);
+    } else {
+      await prefs.setString(IGNORE_UPDATE_VERSION_KEY, value);
+    }
+    ignoreUpdateVersion = value;
   }
 
   @action
@@ -420,30 +452,65 @@ abstract class _UserSetting with Store {
     isAMOLED = prefs.getBool(IS_AMOLED_KEY) ?? false;
     isTopMode = prefs.getBool(IS_TOPMODE_KEY) ?? false;
     languageNum = prefs.getInt(LANGUAGE_NUM_KEY) ?? 0;
-    disableBypassSni = prefs.getBool('disable_bypass_sni') ?? false;
+    await _restoreNetworkMode();
+    pictureSource = networkMode.allowsImageSource
+        ? (prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost)
+        : ImageHost;
     ApiClient.Accept_Language = languageList[languageNum];
-    await PixivImage.generatePixivCache();
-    await oAuthClient.createDioClient();
-    await apiClient.createDioClient();
+    await _applyNetworkClients();
     apiClient.httpClient.options.headers[HttpHeaders.acceptLanguageHeader] =
         ApiClient.Accept_Language;
     locale = iSupportedLocales[languageNum];
     crossAdapt = prefs.getBool(CROSS_ADAPT_KEY) ?? false;
-    hCrossAdapt = prefs.getBool(CROSS_ADAPT_KEY) ?? false;
+    hCrossAdapt = prefs.getBool(H_CROSS_ADAPT_KEY) ?? false;
     final crossAdapterV = prefs.getInt(CROSS_ADAPT_WIDTH_KEY) ?? 100;
     final hCrossAdapterV = prefs.getInt(H_CROSS_ADAPT_WIDTH_KEY) ?? 100;
-    crossAdapterWidth = min(2160, max(100, crossAdapterV));
-    hCrossAdapterWidth = min(2160, max(100, hCrossAdapterV));
+    crossAdapterWidth = min(2160, max(50, crossAdapterV));
+    hCrossAdapterWidth = min(2160, max(50, hCrossAdapterV));
     crossCount = prefs.getInt(CROSS_COUNT_KEY) ?? 2;
     hCrossCount = prefs.getInt(H_CROSS_COUNT_KEY) ?? 4;
     feedAIBadge = prefs.getBool(FEED_AI_BADGE_KEY) ?? true;
     padMode = prefs.getInt(PAD_MODE_KEY) ?? 0;
-    pictureSource = disableBypassSni
-        ? ImageHost
-        : (prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost);
     await Hoster.initMap();
     themeInitState = 1;
     fetcher.start(pictureSource!);
+  }
+
+  Future<void> _applyNetworkClients() async {
+    await PixivImage.generatePixivCache();
+    await oAuthClient.createDioClient();
+    await apiClient.createDioClient();
+  }
+
+  Future<void> _restoreNetworkMode() async {
+    final migratedMode = _migratedNetworkModeFromLegacy();
+    networkMode = _restoreMode(API_NETWORK_MODE_KEY, migratedMode);
+    oauthNetworkMode = _restoreMode(OAUTH_NETWORK_MODE_KEY, migratedMode);
+    await prefs.setString(API_NETWORK_MODE_KEY, networkMode.code);
+    await prefs.setString(OAUTH_NETWORK_MODE_KEY, oauthNetworkMode.code);
+    await prefs.remove(NETWORK_MODE_KEY);
+    await prefs.remove(LEGACY_DISABLE_BYPASS_SNI_KEY);
+  }
+
+  NetworkMode _restoreMode(String key, NetworkMode fallback) {
+    final storedMode = prefs.getString(key);
+    if (storedMode != null && storedMode.isNotEmpty) {
+      return NetworkMode.fromCode(storedMode);
+    }
+    return fallback;
+  }
+
+  NetworkMode _migratedNetworkModeFromLegacy() {
+    final storedMode = prefs.getString(NETWORK_MODE_KEY);
+    if (storedMode != null && storedMode.isNotEmpty) {
+      final legacyMode = NetworkMode.fromCode(storedMode);
+      return legacyMode == NetworkMode.standard
+          ? NetworkMode.standard
+          : NetworkMode.ech;
+    }
+
+    final legacyValue = prefs.getBool(LEGACY_DISABLE_BYPASS_SNI_KEY);
+    return legacyValue == true ? NetworkMode.standard : NetworkMode.ech;
   }
 
   Future<void> _restoreWelcomePageType() async {
@@ -517,6 +584,8 @@ abstract class _UserSetting with Store {
     useSaunceNaoWebview = prefs.getBool(USE_SAUNCE_NAO_WEBVIEW) ?? false;
     dragStartX = prefs.getDouble(DRAG_START_X_KEY) ?? 0;
     autoTagWhenStar = prefs.getBool(AUTO_TAG_WHEN_STAR_KEY) ?? false;
+    hapticFeedback = prefs.getBool(HAPTIC_FEEDBACK_KEY) ?? true;
+    ignoreUpdateVersion = prefs.getString(IGNORE_UPDATE_VERSION_KEY);
     illustDetailSaveSkipLongPress =
         prefs.getBool(ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY) ?? false;
     if (Platform.isAndroid) {
@@ -614,9 +683,25 @@ abstract class _UserSetting with Store {
   }
 
   @action
-  setDisableBypassSni(bool value) async {
-    await prefs.setBool('disable_bypass_sni', value);
-    disableBypassSni = value;
+  setNetworkMode(NetworkMode value) async {
+    await prefs.setString(API_NETWORK_MODE_KEY, value.code);
+    networkMode = value;
+    if (!value.allowsImageSource) {
+      pictureSource = ImageHost;
+      splashStore.setHost(ImageHost);
+    } else {
+      pictureSource = prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost;
+      splashStore.setHost(pictureSource!);
+    }
+    await _applyNetworkClients();
+    fetcher.reloadNetwork();
+  }
+
+  @action
+  setOAuthNetworkMode(NetworkMode value) async {
+    await prefs.setString(OAUTH_NETWORK_MODE_KEY, value.code);
+    oauthNetworkMode = value;
+    await _applyNetworkClients();
   }
 
   @action

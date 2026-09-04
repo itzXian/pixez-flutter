@@ -14,23 +14,26 @@
  *
  */
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/app_widget_plugin.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
+import 'package:pixez/er/updater.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/glance_illust_persist.dart';
 import 'package:pixez/page/about/languages.dart';
 import 'package:pixez/page/hello/setting/copy_text_page.dart';
 import 'package:pixez/page/hello/setting/setting_cross_adapter_page.dart';
 import 'package:pixez/page/network/network_page.dart';
 import 'package:pixez/page/platform/platform_page.dart';
 import 'package:pixez/store/welcome_page_type.dart';
+import 'package:pixez/utils/haptic_util.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class SettingQualityPage extends StatefulWidget {
@@ -40,10 +43,8 @@ class SettingQualityPage extends StatefulWidget {
 
 class _SettingQualityPageState extends State<SettingQualityPage>
     with TickerProviderStateMixin {
-  final _typeList = ["follow_illust", "recom", "rank"];
+  final _typeList = ["recom", "rank", "follow_illust"];
   int _widgetTypeIndex = -1;
-  GlanceIllustPersistProvider glanceIllustPersistProvider =
-      GlanceIllustPersistProvider();
 
   @override
   void initState() {
@@ -54,6 +55,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
   _initData() async {
     final type = await Prefer.getString("widget_illust_type") ?? "recom";
     int index = _typeList.indexOf(type);
+    final normalizedType = index == -1 ? "recom" : type;
     if (index != -1) {
       setState(() {
         _widgetTypeIndex = index;
@@ -63,6 +65,14 @@ class _SettingQualityPageState extends State<SettingQualityPage>
         _widgetTypeIndex = 0;
       });
     }
+    await _saveWidgetIllustType(normalizedType);
+  }
+
+  Future<void> _saveWidgetIllustType(String type) async {
+    await Prefer.setString("widget_illust_type", type);
+    try {
+      await AppWidgetPlugin.setRecommendType(type);
+    } catch (e) {}
   }
 
   String _welcomePageLabel(BuildContext context, WelcomePageType type) {
@@ -245,6 +255,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                         Leader.push(context, SettingCrossAdpaterPage(h: true));
                         return;
                       }
+                      await userSetting.setHCrossAdapt(false);
                       userSetting.setHCrossCount(index + 2);
                       BotToast.showText(
                         text: I18n.of(context).need_to_restart_app,
@@ -270,19 +281,18 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     leading: const Icon(Icons.widgets),
                     title: Text(I18n.of(context).appwidget_recommend_type),
                     trailing: SettingSelectMenu(
-                      index: userSetting.zoomQuality,
+                      index: _widgetTypeIndex,
                       items: [
                         I18n.of(context).recommend,
                         I18n.of(context).rank,
                         I18n.of(context).news,
                       ],
                       onChange: (index) async {
-                        try {
-                          final type = _typeList[index];
-                          await Prefer.setString("widget_illust_type", type);
-                          await glanceIllustPersistProvider.open();
-                          await glanceIllustPersistProvider.deleteAll();
-                        } catch (e) {}
+                        final type = _typeList[index];
+                        setState(() {
+                          _widgetTypeIndex = index;
+                        });
+                        await _saveWidgetIllustType(type);
                       },
                     ),
                   ),
@@ -291,6 +301,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.isBangs,
                   title: Text(I18n.of(context).special_shaped_screen),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setIsBangs(value);
                   },
                 ),
@@ -298,6 +309,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.longPressSaveConfirm,
                   title: Text(I18n.of(context).long_press_save_confirm),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setLongPressSaveConfirm(value);
                   },
                 ),
@@ -305,6 +317,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.hIsNotAllow,
                   title: Text('H是不行的！'),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     if (!value) BotToast.showText(text: 'H是可以的！(ˉ﹃ˉ)');
                     userSetting.setHIsNotAllow(value);
                   },
@@ -313,6 +326,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.isReturnAgainToExit,
                   title: Text(I18n.of(context).return_again_to_exit),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setIsReturnAgainToExit(value);
                   },
                 ),
@@ -320,9 +334,19 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.swipeChangeArtwork,
                   title: Text(I18n.of(context).swipe_to_switch_artworks),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setSwipeChangeArtwork(value);
                   },
                 ),
+                if (Platform.isAndroid || Platform.isIOS)
+                  SwitchListTile(
+                    value: userSetting.hapticFeedback,
+                    title: Text(I18n.of(context).haptic_feedback),
+                    onChanged: (value) async {
+                      if (value) HapticUtil.light(force: true);
+                      userSetting.setHapticFeedback(value);
+                    },
+                  ),
                 if (Platform.isAndroid || Platform.isIOS)
                   SwitchListTile(
                     value: userSetting.nsfwMask,
@@ -332,6 +356,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                           : I18n.of(context).secure_window,
                     ),
                     onChanged: (value) async {
+                      HapticUtil.light();
                       userSetting.changeNsfwMask(value);
                     },
                   ),
@@ -340,6 +365,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     value: userSetting.useSaunceNaoWebview,
                     title: Text(I18n.of(context).open_saucenao_using_webview),
                     onChanged: (value) async {
+                      HapticUtil.light();
                       userSetting.setUseSaunceNaoWebview(value);
                     },
                   ),
@@ -347,6 +373,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.illustDetailSaveSkipLongPress,
                   title: Text(I18n.of(context).illust_detail_save_skip_confirm),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setIllustDetailSaveSkipLongPress(value);
                   },
                 ),
@@ -354,14 +381,39 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.feedAIBadge,
                   title: Text(I18n.of(context).show_feed_ai_badge),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setFeedAIBadge(value);
                   },
                 ),
+                if (!Constants.isGooglePlay && !Platform.isIOS)
+                  SwitchListTile(
+                    value: Updater.result == Result.yes &&
+                        Updater.latestVersion != null &&
+                        userSetting.ignoreUpdateVersion == Updater.latestVersion,
+                    title: Text(I18n.of(context).ignore_current_version_update),
+                    onChanged: (value) async {
+                      HapticUtil.light();
+                      if (value) {
+                        if (Updater.latestVersion == null) {
+                          await Updater.check();
+                        }
+                        if (Updater.result == Result.yes &&
+                            Updater.latestVersion != null) {
+                          await userSetting.setIgnoreUpdateVersion(
+                            Updater.latestVersion,
+                          );
+                        }
+                      } else {
+                        await userSetting.setIgnoreUpdateVersion(null);
+                      }
+                    },
+                  ),
                 Divider(),
                 SwitchListTile(
                   value: userSetting.followAfterStar,
                   title: Text(I18n.of(context).follow_after_star),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setFollowAfterStar(value);
                   },
                 ),
@@ -369,6 +421,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   value: userSetting.defaultPrivateLike,
                   title: Text(I18n.of(context).private_like_by_default),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setDefaultPrivateLike(value);
                   },
                 ),
@@ -378,6 +431,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     I18n.of(context).automatically_download_when_bookmarking,
                   ),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setSaveAfterStar(value);
                   },
                 ),
@@ -387,6 +441,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     I18n.of(context).automatically_bookmark_when_downloading,
                   ),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setStarAfterSave(value);
                   },
                 ),
@@ -396,6 +451,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     I18n.of(context).automatically_tag_when_bookmarking,
                   ),
                   onChanged: (value) async {
+                    HapticUtil.light();
                     userSetting.setAutoTagWhenStar(value);
                   },
                 ),
@@ -483,7 +539,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
 class SettingSelectMenu extends StatefulWidget {
   final int index;
   final List<String> items;
-  final Function(int) onChange;
+  final FutureOr<void> Function(int) onChange;
   const SettingSelectMenu({
     super.key,
     required this.index,
@@ -524,11 +580,12 @@ class _SettingSelectMenuState extends State<SettingSelectMenu> {
       elevation: 0.0,
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: InkWell(
-        onTap: () {
+        onTap: () async {
+          HapticUtil.selectionClick();
           final renderBox = context.findRenderObject() as RenderBox;
           var local = renderBox.localToGlobal(Offset.zero);
           var size = MediaQuery.of(context).size;
-          showMenu(
+          final selected = await showMenu<int>(
             context: context,
             position: RelativeRect.fromLTRB(
               local.dx - 20,
@@ -536,21 +593,19 @@ class _SettingSelectMenuState extends State<SettingSelectMenu> {
               local.dx + size.width - 20,
               size.height + local.dy,
             ),
-            items: <PopupMenuEntry>[
+            items: <PopupMenuEntry<int>>[
               for (int i = 0; i < _items.length; i++)
-                if (!_items.contains(i))
-                  PopupMenuItem(
-                    value: i,
-                    onTap: () {
-                      setState(() {
-                        _index = i;
-                        widget.onChange(i);
-                      });
-                    },
-                    child: Text(_items[i]),
-                  ),
+                if (i != _index)
+                  PopupMenuItem(value: i, child: Text(_items[i])),
             ],
           );
+          if (selected == null || selected == _index) {
+            return;
+          }
+          setState(() {
+            _index = selected;
+          });
+          await widget.onChange(selected);
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),

@@ -26,12 +26,12 @@ import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/follow_detail.dart';
 import 'package:pixez/models/illust_bookmark_tags_response.dart';
 import 'package:pixez/models/tags.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/network/pixez_network_settings.dart';
 import 'package:pixez/network/refresh_token_interceptor.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
@@ -70,18 +70,10 @@ class ApiClient {
 
   Future<Dio> createDioClient() async {
     final compatibleClient = await r.RhttpCompatibleClient.create(
-      settings: userSetting.disableBypassSni
-          ? null
-          : r.ClientSettings(
-              enableEch: true,
-              tlsSettings: r.TlsSettings(verifyCertificates: false, sni: true),
-              // dnsSettings: r.DnsSettings.dynamic(
-              //   resolver: (host) async {
-              //     final ip = Hoster.api();
-              //     return [ip];
-              //   },
-              // ),
-            ),
+      settings: PixezNetworkSettings.forHost(
+        BASE_API_URL_HOST,
+        userSetting.networkMode,
+      ),
     );
     httpClient.httpClientAdapter = ConversionLayerAdapter(compatibleClient);
     if (Platform.isAndroid) {
@@ -99,24 +91,10 @@ class ApiClient {
 
   static Future<ConversionLayerAdapter> createCompatibleClient() async {
     final compatibleClient = await r.RhttpCompatibleClient.create(
-      settings: userSetting.disableBypassSni
-          ? null
-          : r.ClientSettings(
-              tlsSettings: r.TlsSettings(verifyCertificates: false, sni: false),
-              dnsSettings: r.DnsSettings.dynamic(
-                resolver: (host) async {
-                  if (host == 'i.pximg.net') {
-                    return [Hoster.iPximgNet()];
-                  }
-                  if (host == 's.pximg.net') {
-                    return [Hoster.sPximgNet()];
-                  }
-                  return await InternetAddress.lookup(
-                    host,
-                  ).then((value) => value.map((e) => e.address).toList());
-                },
-              ),
-            ),
+      settings: PixezNetworkSettings.forImages(
+        userSetting.pictureSource,
+        userSetting.networkMode,
+      ),
     );
     return ConversionLayerAdapter(compatibleClient);
   }
